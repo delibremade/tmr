@@ -11,26 +11,23 @@ __email__ = "your.email@example.com"
 # Core framework (only import what's implemented)
 from .core.config import TMRConfig, VerificationDepth
 from .fundamentals import FundamentalsLayer
+from .nuance import NuanceLayer
 
-# Future imports (not yet implemented)
+# Core and Execution layers not yet implemented
 # from .core.framework import TMRFramework
-# from .nuance import NuanceLayer
+# from .core.config import TMRConfig, VerificationDepth
 # from .execution import ExecutionLayer
 
 # OpenAI integration
 from .integrations import TMROpenAI, OpenAIConfig
 
 __all__ = [
-    # Core
-    "TMRConfig",
-    "VerificationDepth",
+    # Fundamentals Layer
     "FundamentalsLayer",
-    # Integrations
-    "TMROpenAI",
-    "OpenAIConfig",
-    # Future (not yet implemented)
+    "NuanceLayer",
     # "TMRFramework",
-    # "NuanceLayer",
+    # "TMRConfig",
+    # "VerificationDepth",
     # "ExecutionLayer",
 ]
 
