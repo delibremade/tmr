@@ -10,19 +10,19 @@ __email__ = "your.email@example.com"
 
 # Import available layers
 from .fundamentals import FundamentalsLayer
+from .nuance import NuanceLayer
 
-# Core, Nuance, and Execution layers not yet implemented
+# Core and Execution layers not yet implemented
 # from .core.framework import TMRFramework
 # from .core.config import TMRConfig, VerificationDepth
-# from .nuance import NuanceLayer
 # from .execution import ExecutionLayer
 
 __all__ = [
     "FundamentalsLayer",
+    "NuanceLayer",
     # "TMRFramework",
     # "TMRConfig",
     # "VerificationDepth",
-    # "NuanceLayer",
     # "ExecutionLayer",
 ]
 
