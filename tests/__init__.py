@@ -1,3 +1,4 @@
 """
-Tests for Trinity Meta-Reasoning Framework
+TMR Framework Test Suite
+Tests for the Trust-based Mathematical Reasoning framework
 """

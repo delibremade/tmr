@@ -783,10 +783,18 @@ class ConsistencyValidator(PrincipleValidator):
         """Validate consistency across different reasoning domains."""
         # Check that conclusions align across domains
         conclusions = []
-        
+
         for domain in ["logical", "mathematical", "causal"]:
             if domain in composite:
-                conclusion = composite[domain].get("conclusion")
+                component = composite[domain]
+                # Handle ReasoningChain objects
+                if isinstance(component, ReasoningChain):
+                    conclusion = component.conclusion
+                elif isinstance(component, dict):
+                    conclusion = component.get("conclusion")
+                else:
+                    conclusion = None
+
                 if conclusion:
                     conclusions.append(conclusion)
         
