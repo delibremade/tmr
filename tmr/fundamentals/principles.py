@@ -8,7 +8,6 @@ from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Optional, Tuple
 import logging
 from dataclasses import dataclass
-import numpy as np
 from enum import Enum
 
 logger = logging.getLogger(__name__)
@@ -140,16 +139,124 @@ class IdentityPrinciple(LogicalPrinciple):
         return False
     
     def _semantic_similarity(self, s1: str, s2: str) -> float:
-        """Simple semantic similarity check."""
-        # Placeholder - in production would use embeddings
-        if s1.lower() == s2.lower():
+        """
+        Calculate semantic similarity between two strings.
+        Returns a score between 0.0 and 1.0.
+        """
+        # Exact match
+        if s1 == s2:
             return 1.0
-        
-        # Check if one contains the other
-        if s1.lower() in s2.lower() or s2.lower() in s1.lower():
-            return 0.7
-        
-        return 0.0
+
+        # Case-insensitive exact match
+        s1_lower = s1.lower().strip()
+        s2_lower = s2.lower().strip()
+
+        if s1_lower == s2_lower:
+            return 0.98
+
+        # Calculate multiple similarity metrics
+        scores = []
+
+        # 1. Levenshtein-based similarity
+        lev_sim = self._levenshtein_similarity(s1_lower, s2_lower)
+        scores.append(lev_sim)
+
+        # 2. Token-based Jaccard similarity
+        jaccard_sim = self._jaccard_similarity(s1_lower, s2_lower)
+        scores.append(jaccard_sim)
+
+        # 3. Longest common subsequence similarity
+        lcs_sim = self._lcs_similarity(s1_lower, s2_lower)
+        scores.append(lcs_sim)
+
+        # 4. Containment check
+        if s1_lower in s2_lower or s2_lower in s1_lower:
+            containment_score = min(len(s1_lower), len(s2_lower)) / max(len(s1_lower), len(s2_lower))
+            scores.append(containment_score)
+
+        # Return weighted average, with emphasis on highest score
+        if not scores:
+            return 0.0
+
+        # Take max and average for final score
+        max_score = max(scores)
+        avg_score = sum(scores) / len(scores)
+
+        # Weighted combination favoring the best metric
+        return 0.6 * max_score + 0.4 * avg_score
+
+    def _levenshtein_similarity(self, s1: str, s2: str) -> float:
+        """Calculate similarity based on Levenshtein distance."""
+        if not s1 or not s2:
+            return 0.0
+
+        # Create distance matrix
+        m, n = len(s1), len(s2)
+        dp = [[0] * (n + 1) for _ in range(m + 1)]
+
+        # Initialize base cases
+        for i in range(m + 1):
+            dp[i][0] = i
+        for j in range(n + 1):
+            dp[0][j] = j
+
+        # Fill matrix
+        for i in range(1, m + 1):
+            for j in range(1, n + 1):
+                if s1[i-1] == s2[j-1]:
+                    dp[i][j] = dp[i-1][j-1]
+                else:
+                    dp[i][j] = 1 + min(dp[i-1][j], dp[i][j-1], dp[i-1][j-1])
+
+        # Convert distance to similarity
+        max_len = max(m, n)
+        if max_len == 0:
+            return 1.0
+
+        distance = dp[m][n]
+        similarity = 1.0 - (distance / max_len)
+        return max(0.0, similarity)
+
+    def _jaccard_similarity(self, s1: str, s2: str) -> float:
+        """Calculate Jaccard similarity based on word tokens."""
+        # Tokenize
+        tokens1 = set(s1.split())
+        tokens2 = set(s2.split())
+
+        if not tokens1 and not tokens2:
+            return 1.0
+        if not tokens1 or not tokens2:
+            return 0.0
+
+        # Calculate Jaccard index
+        intersection = tokens1.intersection(tokens2)
+        union = tokens1.union(tokens2)
+
+        return len(intersection) / len(union) if union else 0.0
+
+    def _lcs_similarity(self, s1: str, s2: str) -> float:
+        """Calculate similarity based on longest common subsequence."""
+        if not s1 or not s2:
+            return 0.0
+
+        m, n = len(s1), len(s2)
+
+        # Create LCS matrix
+        lcs = [[0] * (n + 1) for _ in range(m + 1)]
+
+        # Fill matrix
+        for i in range(1, m + 1):
+            for j in range(1, n + 1):
+                if s1[i-1] == s2[j-1]:
+                    lcs[i][j] = lcs[i-1][j-1] + 1
+                else:
+                    lcs[i][j] = max(lcs[i-1][j], lcs[i][j-1])
+
+        # Convert to similarity
+        lcs_length = lcs[m][n]
+        max_len = max(m, n)
+
+        return lcs_length / max_len if max_len > 0 else 0.0
 
 
 class NonContradictionPrinciple(LogicalPrinciple):
@@ -227,8 +334,150 @@ class NonContradictionPrinciple(LogicalPrinciple):
     
     def _check_list_consistency(self, statements: List) -> bool:
         """Check consistency in a list of statements."""
-        # Placeholder implementation
+        if not statements or len(statements) < 2:
+            return True
+
+        # Convert all statements to comparable format
+        normalized_statements = []
+        for stmt in statements:
+            if isinstance(stmt, str):
+                normalized_statements.append({"text": stmt, "type": "string"})
+            elif isinstance(stmt, dict):
+                normalized_statements.append({"text": str(stmt), "dict": stmt, "type": "dict"})
+            elif isinstance(stmt, (int, float, bool)):
+                normalized_statements.append({"text": str(stmt), "value": stmt, "type": "value"})
+            else:
+                normalized_statements.append({"text": str(stmt), "type": "other"})
+
+        # Check pairwise for contradictions
+        for i, stmt1 in enumerate(normalized_statements):
+            for stmt2 in normalized_statements[i+1:]:
+                if self._statements_contradict(stmt1, stmt2):
+                    logger.debug(f"Contradiction found between: {stmt1['text']} and {stmt2['text']}")
+                    return False
+
         return True
+
+    def _statements_contradict(self, stmt1: Dict, stmt2: Dict) -> bool:
+        """Check if two normalized statements contradict each other."""
+        # Handle boolean values
+        if stmt1["type"] == "value" and stmt2["type"] == "value":
+            if isinstance(stmt1.get("value"), bool) and isinstance(stmt2.get("value"), bool):
+                # Same statement with different truth values
+                if stmt1["text"] == stmt2["text"]:
+                    return stmt1["value"] != stmt2["value"]
+
+        # Handle string statements
+        if stmt1["type"] == "string" and stmt2["type"] == "string":
+            return self._text_contradicts(stmt1["text"], stmt2["text"])
+
+        # Handle dict propositions
+        if stmt1["type"] == "dict" and stmt2["type"] == "dict":
+            return self._are_contradictory(stmt1["dict"], stmt2["dict"])
+
+        # Handle mixed types
+        if stmt1["type"] in ["string", "dict"] and stmt2["type"] in ["string", "dict"]:
+            # Extract text from both and compare
+            text1 = stmt1["text"]
+            text2 = stmt2["text"]
+            return self._text_contradicts(text1, text2)
+
+        return False
+
+    def _text_contradicts(self, text1: str, text2: str) -> bool:
+        """Check if two text statements contradict each other."""
+        # Normalize texts
+        t1 = text1.lower().strip()
+        t2 = text2.lower().strip()
+
+        # Direct negation patterns
+        negation_patterns = [
+            ("is", "is not"),
+            ("are", "are not"),
+            ("was", "was not"),
+            ("were", "were not"),
+            ("will", "will not"),
+            ("can", "cannot"),
+            ("should", "should not"),
+            ("has", "has not"),
+            ("have", "have not"),
+            ("does", "does not"),
+            ("do", "do not"),
+        ]
+
+        for positive, negative in negation_patterns:
+            # Check if one has positive and other has negative
+            if positive in t1 and negative in t2:
+                # Extract parts before and after the verb
+                parts1 = t1.split(positive)
+                parts2 = t2.split(negative)
+                if len(parts1) == 2 and len(parts2) == 2:
+                    if parts1[0].strip() == parts2[0].strip() and parts1[1].strip() == parts2[1].strip():
+                        return True
+
+            if negative in t1 and positive in t2:
+                parts1 = t1.split(negative)
+                parts2 = t2.split(positive)
+                if len(parts1) == 2 and len(parts2) == 2:
+                    if parts1[0].strip() == parts2[0].strip() and parts1[1].strip() == parts2[1].strip():
+                        return True
+
+        # Check for "not" insertion/removal
+        if "not" in t1 and "not" not in t2:
+            t1_without_not = t1.replace(" not ", " ").replace("not ", "").strip()
+            if t1_without_not == t2:
+                return True
+
+        if "not" in t2 and "not" not in t1:
+            t2_without_not = t2.replace(" not ", " ").replace("not ", "").strip()
+            if t2_without_not == t1:
+                return True
+
+        # Check for antonym pairs
+        antonym_pairs = [
+            ("true", "false"),
+            ("yes", "no"),
+            ("always", "never"),
+            ("all", "none"),
+            ("everything", "nothing"),
+            ("everyone", "no one"),
+            ("increase", "decrease"),
+            ("rise", "fall"),
+            ("grow", "shrink"),
+            ("expand", "contract"),
+            ("greater", "less"),
+            ("more", "fewer"),
+            ("above", "below"),
+            ("before", "after"),
+            ("present", "absent"),
+            ("exist", "not exist"),
+            ("possible", "impossible"),
+            ("valid", "invalid"),
+            ("correct", "incorrect"),
+        ]
+
+        # Extract words
+        words1 = set(t1.split())
+        words2 = set(t2.split())
+
+        for word1, word2 in antonym_pairs:
+            if word1 in words1 and word2 in words2:
+                # Check if rest of statement is similar
+                remaining1 = words1 - {word1}
+                remaining2 = words2 - {word2}
+                overlap = remaining1.intersection(remaining2)
+                if len(overlap) >= min(len(remaining1), len(remaining2)) * 0.6:
+                    return True
+
+            # Check reverse
+            if word2 in words1 and word1 in words2:
+                remaining1 = words1 - {word2}
+                remaining2 = words2 - {word1}
+                overlap = remaining1.intersection(remaining2)
+                if len(overlap) >= min(len(remaining1), len(remaining2)) * 0.6:
+                    return True
+
+        return False
 
 
 class ExcludedMiddlePrinciple(LogicalPrinciple):

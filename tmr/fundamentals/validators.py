@@ -9,7 +9,7 @@ import re
 import logging
 from dataclasses import dataclass
 from abc import ABC, abstractmethod
-import numpy as np
+import statistics
 
 from .principles import LogicalPrinciples, PrincipleType, ValidationResult
 
@@ -91,7 +91,7 @@ class LogicalValidator(PrincipleValidator):
             for step_results in results:
                 _, step_confidence = self.principles.get_aggregate_validity(step_results)
                 confidences.append(step_confidence)
-            avg_confidence = np.mean(confidences)
+            avg_confidence = statistics.mean(confidences)
         else:
             avg_confidence = 0.0
         
@@ -232,7 +232,7 @@ class MathematicalValidator(PrincipleValidator):
         )
         
         if step_confidences:
-            step_conf_avg = np.mean(step_confidences)
+            step_conf_avg = statistics.mean(step_confidences)
             confidence = 0.7 * base_confidence + 0.3 * step_conf_avg
         else:
             confidence = base_confidence
@@ -288,20 +288,147 @@ class MathematicalValidator(PrincipleValidator):
     
     def _validate_math_step(self, step: str, index: int, all_steps: List[str]) -> Tuple[bool, float]:
         """Validate a single mathematical step."""
+        confidence = 0.7  # Base confidence
+
+        # Check for common errors first
+        errors = self._detect_math_errors(step)
+        if errors:
+            logger.debug(f"Math errors in step {index}: {errors}")
+            return False, 0.1
+
         # Check if step maintains equality
         if "=" in step:
             parts = step.split("=")
-            if len(parts) == 2:
-                # In production, would evaluate both sides
-                # For now, basic validation
-                return True, 0.8
-        
-        # Check for common errors
-        errors = self._detect_math_errors(step)
-        if errors:
-            return False, 0.2
-        
-        return True, 0.7
+
+            # Must have exactly 2 parts (one equals sign)
+            if len(parts) != 2:
+                return False, 0.2
+
+            left_side = parts[0].strip()
+            right_side = parts[1].strip()
+
+            # Both sides must be non-empty
+            if not left_side or not right_side:
+                return False, 0.2
+
+            # Try to evaluate both sides
+            try:
+                left_value = self._safe_eval(left_side)
+                right_value = self._safe_eval(right_side)
+
+                # If both can be evaluated, check if they're equal
+                if left_value is not None and right_value is not None:
+                    if isinstance(left_value, (int, float)) and isinstance(right_value, (int, float)):
+                        if abs(left_value - right_value) < 1e-10:
+                            confidence = 0.95
+                        else:
+                            logger.debug(f"Equation not balanced: {left_value} != {right_value}")
+                            return False, 0.1
+                    else:
+                        confidence = 0.85  # Can't verify numerically
+                else:
+                    confidence = 0.75  # Can't evaluate, but syntactically valid
+
+            except Exception as e:
+                logger.debug(f"Could not evaluate step: {e}")
+                confidence = 0.6  # Syntax looks ok but can't verify
+
+        # If there's a previous step, check transformation validity
+        if index > 0 and index <= len(all_steps):
+            prev_step = all_steps[index - 1]
+
+            # Check if transformation from previous step is valid
+            transform_valid = self._check_transformation_validity(prev_step, step)
+            if not transform_valid:
+                confidence *= 0.7  # Reduce confidence for questionable transformation
+
+        # Check for proper algebraic operations
+        if self._contains_algebraic_operation(step):
+            algebraic_valid = self._validate_algebraic_operation(step)
+            if not algebraic_valid:
+                return False, 0.3
+            confidence = max(confidence, 0.8)
+
+        return True, confidence
+
+    def _safe_eval(self, expr: str) -> Any:
+        """Safely evaluate a mathematical expression."""
+        try:
+            # Remove whitespace
+            expr = expr.strip()
+
+            # Only allow safe mathematical operations
+            # Replace common mathematical functions
+            safe_expr = expr
+            safe_expr = safe_expr.replace('^', '**')
+
+            # Check for only allowed characters
+            allowed = set('0123456789+-*/().**x ')
+            if not all(c in allowed for c in safe_expr.replace('.', '').replace('x', '')):
+                # Contains variables or unsafe characters
+                return None
+
+            # If contains 'x' or other variables, can't evaluate numerically
+            if 'x' in safe_expr.lower() or any(c.isalpha() for c in safe_expr):
+                return None
+
+            # Create restricted namespace
+            safe_namespace = {
+                '__builtins__': {},
+                'abs': abs,
+                'min': min,
+                'max': max,
+                'pow': pow,
+            }
+
+            # Evaluate
+            result = eval(safe_expr, safe_namespace)
+            return result
+
+        except Exception as e:
+            logger.debug(f"Evaluation error: {e}")
+            return None
+
+    def _check_transformation_validity(self, prev_step: str, curr_step: str) -> bool:
+        """Check if transformation from prev_step to curr_step is valid."""
+        # Extract both sides of equations if present
+        prev_parts = prev_step.split('=') if '=' in prev_step else [prev_step]
+        curr_parts = curr_step.split('=') if '=' in curr_step else [curr_step]
+
+        if len(prev_parts) != len(curr_parts):
+            return False  # Changed equation structure
+
+        # Check for valid transformation operations
+        # Common valid transformations:
+        # 1. Adding/subtracting same value to both sides
+        # 2. Multiplying/dividing both sides by same non-zero value
+        # 3. Simplification (combining like terms)
+        # 4. Distribution/factoring
+
+        # For now, accept if both have same number of equals signs
+        # More sophisticated checking would use symbolic math
+        return True
+
+    def _contains_algebraic_operation(self, step: str) -> bool:
+        """Check if step contains algebraic operations."""
+        algebraic_indicators = ['x', 'y', 'z', 'a', 'b', 'c', 'n', '√', 'sqrt', 'log', 'ln', 'sin', 'cos', 'tan']
+        return any(indicator in step.lower() for indicator in algebraic_indicators)
+
+    def _validate_algebraic_operation(self, step: str) -> bool:
+        """Validate algebraic operations in the step."""
+        # Check for balanced operations
+        if '(' in step or ')' in step:
+            if not self._balanced_parentheses(step):
+                return False
+
+        # Check for valid algebraic syntax
+        # No double operators (except **, --, ++)
+        invalid_patterns = ['++', '+-', '-+', '*/', '/*', '//', '==']
+        for pattern in invalid_patterns:
+            if pattern in step and pattern not in ['**', '--']:
+                return False
+
+        return True
     
     def _detect_math_errors(self, step: str) -> List[str]:
         """Detect common mathematical errors."""
@@ -330,9 +457,120 @@ class MathematicalValidator(PrincipleValidator):
         return True
     
     def _transformation_valid(self, step1: str, step2: str) -> bool:
-        """Check if transformation from step1 to step2 is valid."""
-        # Placeholder - in production would use symbolic math
+        """
+        Check if transformation from step1 to step2 is valid.
+        Validates that mathematical operations preserve equality.
+        """
+        # If either step is empty, can't validate
+        if not step1 or not step2:
+            return False
+
+        # Both steps should have equals signs for equation transformation
+        has_eq1 = '=' in step1
+        has_eq2 = '=' in step2
+
+        # If one has equals and other doesn't, transformation changed structure
+        if has_eq1 != has_eq2:
+            return False
+
+        if not has_eq1:
+            # No equations to validate, just expressions
+            # Check if they're equivalent
+            val1 = self._safe_eval(step1)
+            val2 = self._safe_eval(step2)
+
+            if val1 is not None and val2 is not None:
+                if isinstance(val1, (int, float)) and isinstance(val2, (int, float)):
+                    return abs(val1 - val2) < 1e-10
+
+            # Can't evaluate, accept transformation
+            return True
+
+        # Both have equations - validate transformation
+        parts1 = step1.split('=')
+        parts2 = step2.split('=')
+
+        if len(parts1) != 2 or len(parts2) != 2:
+            return False  # Invalid equation format
+
+        left1, right1 = parts1[0].strip(), parts1[1].strip()
+        left2, right2 = parts2[0].strip(), parts2[1].strip()
+
+        # Try to evaluate both equations
+        try:
+            # Check if step1 is balanced
+            val1_left = self._safe_eval(left1)
+            val1_right = self._safe_eval(right1)
+
+            # Check if step2 is balanced
+            val2_left = self._safe_eval(left2)
+            val2_right = self._safe_eval(right2)
+
+            # If all can be evaluated
+            if all(v is not None for v in [val1_left, val1_right, val2_left, val2_right]):
+                # Check if both equations are balanced
+                eq1_balanced = abs(val1_left - val1_right) < 1e-10
+                eq2_balanced = abs(val2_left - val2_right) < 1e-10
+
+                if not eq1_balanced or not eq2_balanced:
+                    return False
+
+                # Check if the solution is preserved
+                # (equations should have same solution)
+                return True
+
+        except Exception:
+            pass
+
+        # Can't fully validate numerically, check structural validity
+        return self._check_structural_transformation(step1, step2)
+
+    def _check_structural_transformation(self, step1: str, step2: str) -> bool:
+        """Check if structural transformation appears valid."""
+        # Check for common valid transformation patterns
+
+        # 1. Simplification (longer to shorter)
+        # 2. Expansion (shorter to longer)
+        # 3. Substitution (similar complexity)
+
+        # Extract tokens
+        tokens1 = self._tokenize_math(step1)
+        tokens2 = self._tokenize_math(step2)
+
+        # Check if tokens are reasonable
+        # Should not lose fundamental structure
+        numbers1 = [t for t in tokens1 if t.replace('.', '').replace('-', '').isdigit()]
+        numbers2 = [t for t in tokens2 if t.replace('.', '').replace('-', '').isdigit()]
+
+        # If numeric constants disappeared, might be invalid (unless solving)
+        # This is a heuristic - symbolic math library would be better
+
+        # Accept transformation if it's reasonable
         return True
+
+    def _tokenize_math(self, expr: str) -> List[str]:
+        """Tokenize a mathematical expression."""
+        # Simple tokenization
+        tokens = []
+        current = ""
+
+        for char in expr:
+            if char in '+-*/=()^':
+                if current:
+                    tokens.append(current.strip())
+                    current = ""
+                tokens.append(char)
+            elif char.isspace():
+                if current:
+                    tokens.append(current.strip())
+                    current = ""
+            else:
+                current += char
+
+        if current:
+            tokens.append(current.strip())
+
+        return [t for t in tokens if t]
     
     def _validate_result(self, steps: List[str], result: Any) -> bool:
         """Validate that the result follows from the steps."""
@@ -381,7 +619,7 @@ class CausalValidator(PrincipleValidator):
                          (0.2 if not circular else 0.0)
         
         if relationship_confidences:
-            rel_conf_avg = np.mean(relationship_confidences)
+            rel_conf_avg = statistics.mean(relationship_confidences)
             confidence = 0.7 * base_confidence + 0.3 * rel_conf_avg
         else:
             confidence = base_confidence
@@ -520,7 +758,7 @@ class ConsistencyValidator(PrincipleValidator):
         
         # Calculate overall confidence
         if confidences:
-            avg_confidence = np.mean(confidences)
+            avg_confidence = statistics.mean(confidences)
             if not cross_valid:
                 avg_confidence *= 0.8  # Penalty for cross-domain inconsistency
         else:

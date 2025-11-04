@@ -368,9 +368,9 @@ class FundamentalsLayer:
         
         # Calculate average validation time
         if stats["validation_times"]:
-            import numpy as np
-            stats["avg_validation_time_ms"] = np.mean(stats["validation_times"])
-            stats["median_validation_time_ms"] = np.median(stats["validation_times"])
+            import statistics
+            stats["avg_validation_time_ms"] = statistics.mean(stats["validation_times"])
+            stats["median_validation_time_ms"] = statistics.median(stats["validation_times"])
         
         return stats
     
