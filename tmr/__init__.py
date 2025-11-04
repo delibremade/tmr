@@ -10,42 +10,21 @@ __email__ = "your.email@example.com"
 
 # Import available layers
 from .fundamentals import FundamentalsLayer
+from .nuance import NuanceLayer
 
-# Import execution layer
-from .execution import (
-    ExecutionSynthesizer,
-    DepthSelector,
-    VerificationDepth,
-    DepthProfile,
-    OutputFormat,
-    VerificationResult,
-    SynthesisContext
-)
-
-# Core and full framework not yet implemented
+# Core and Execution layers not yet implemented
 # from .core.framework import TMRFramework
-# from .core.config import TMRConfig
-
-# Nuance layer placeholder
-# from .nuance import NuanceLayer
+# from .core.config import TMRConfig, VerificationDepth
+# from .execution import ExecutionLayer
 
 __all__ = [
     # Fundamentals Layer
     "FundamentalsLayer",
-
-    # Execution Layer
-    "ExecutionSynthesizer",
-    "DepthSelector",
-    "VerificationDepth",
-    "DepthProfile",
-    "OutputFormat",
-    "VerificationResult",
-    "SynthesisContext",
-
-    # Not yet implemented
+    "NuanceLayer",
     # "TMRFramework",
     # "TMRConfig",
-    # "NuanceLayer",
+    # "VerificationDepth",
+    # "ExecutionLayer",
 ]
 
 # Module level constants

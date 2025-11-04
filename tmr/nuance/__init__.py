@@ -1,26 +1,54 @@
 """
-Nuance Layer - Adaptive Reasoning Patterns
+Nuance Layer Module
 
-Layer 2 of the Trinity Meta-Reasoning Framework.
-This layer handles domain-specific reasoning patterns and adaptive heuristics.
+Layer 2: Domain-Specific Pattern Recognition
 
-Status: Placeholder implementation - Full implementation pending
+This module provides:
+- Pattern extraction from domain-specific content
+- Domain classification (math, code, logic)
+- Pattern storage and retrieval
+- Pattern matching and application
 """
 
-__version__ = "0.1.0-alpha"
-
-# Placeholder for future NuanceLayer implementation
-# from .patterns import NuanceLayer, ReasoningPattern
-# from .extractors import PatternExtractor
+from .layer import NuanceLayer
+from .patterns import (
+    Pattern,
+    PatternMetadata,
+    PatternMatch,
+    DomainType,
+    PatternComplexity
+)
+from .domains import DomainClassifier
+from .extractors import (
+    PatternExtractor,
+    MathPatternExtractor,
+    CodePatternExtractor,
+    LogicPatternExtractor,
+    PatternExtractorFactory
+)
+from .storage import PatternLibrary
 
 __all__ = [
-    # "NuanceLayer",
-    # "ReasoningPattern",
-    # "PatternExtractor",
-]
+    # Main layer class
+    "NuanceLayer",
 
-# TODO: Implement nuance layer components:
-# - Pattern extraction from reasoning chains
-# - Domain-specific heuristics
-# - Adaptive pattern learning
-# - Pattern caching and retrieval
+    # Pattern classes
+    "Pattern",
+    "PatternMetadata",
+    "PatternMatch",
+    "DomainType",
+    "PatternComplexity",
+
+    # Domain classification
+    "DomainClassifier",
+
+    # Pattern extraction
+    "PatternExtractor",
+    "MathPatternExtractor",
+    "CodePatternExtractor",
+    "LogicPatternExtractor",
+    "PatternExtractorFactory",
+
+    # Storage
+    "PatternLibrary",
+]
