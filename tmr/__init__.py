@@ -8,19 +8,30 @@ __version__ = "0.1.0-alpha"
 __author__ = "Your Name"
 __email__ = "your.email@example.com"
 
-from .core.framework import TMRFramework
+# Core framework (only import what's implemented)
 from .core.config import TMRConfig, VerificationDepth
 from .fundamentals import FundamentalsLayer
-from .nuance import NuanceLayer
-from .execution import ExecutionLayer
+
+# Future imports (not yet implemented)
+# from .core.framework import TMRFramework
+# from .nuance import NuanceLayer
+# from .execution import ExecutionLayer
+
+# OpenAI integration
+from .integrations import TMROpenAI, OpenAIConfig
 
 __all__ = [
-    "TMRFramework",
+    # Core
     "TMRConfig",
     "VerificationDepth",
     "FundamentalsLayer",
-    "NuanceLayer",
-    "ExecutionLayer",
+    # Integrations
+    "TMROpenAI",
+    "OpenAIConfig",
+    # Future (not yet implemented)
+    # "TMRFramework",
+    # "NuanceLayer",
+    # "ExecutionLayer",
 ]
 
 # Module level constants
