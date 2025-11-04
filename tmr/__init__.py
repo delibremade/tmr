@@ -8,7 +8,8 @@ __version__ = "0.1.0-alpha"
 __author__ = "Your Name"
 __email__ = "your.email@example.com"
 
-# Import available layers
+# Core framework (only import what's implemented)
+from .core.config import TMRConfig, VerificationDepth
 from .fundamentals import FundamentalsLayer
 from .nuance import NuanceLayer
 
@@ -16,6 +17,9 @@ from .nuance import NuanceLayer
 # from .core.framework import TMRFramework
 # from .core.config import TMRConfig, VerificationDepth
 # from .execution import ExecutionLayer
+
+# OpenAI integration
+from .integrations import TMROpenAI, OpenAIConfig
 
 __all__ = [
     # Fundamentals Layer
