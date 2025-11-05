@@ -2,7 +2,7 @@
 
 import asyncio
 import time
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, Tuple
 from collections import deque
 from dataclasses import dataclass
 from threading import Lock
@@ -83,7 +83,7 @@ class RateLimiter:
         while self.token_history and self.token_history[0].timestamp < cutoff_time:
             self.token_history.popleft()
 
-    def _get_current_counts(self, current_time: float) -> tuple[int, int]:
+    def _get_current_counts(self, current_time: float) -> Tuple[int, int]:
         """Get current request and token counts in the sliding window.
 
         Args:
