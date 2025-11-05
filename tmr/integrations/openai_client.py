@@ -389,7 +389,7 @@ class TMROpenAI:
             ParsedResponse with verification metadata added
         """
         # Run synchronous verification in thread pool
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         return await loop.run_in_executor(None, self._verify_response, parsed)
 
     def get_usage_statistics(self) -> Dict[str, Any]:
