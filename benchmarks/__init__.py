@@ -24,25 +24,52 @@ Usage:
 __version__ = "0.1.0"
 __author__ = "TMR Development Team"
 
-from .problems import BenchmarkProblem, ProblemSet, get_all_problem_sets
-from .scoring import Score, ScoringSystem
-from .metrics import PerformanceMetrics, MetricsTracker
-from .baselines import BaselineGenerator, BaselineType
+from .problems import (
+    BenchmarkProblem,
+    ProblemSet,
+    ProblemDomain,
+    ComplexityLevel,
+    get_all_problem_sets,
+    get_all_problems,
+    get_problems_by_domain,
+    get_problems_by_complexity,
+    get_benchmark_statistics,
+)
+from .scoring import Score, ScoringSystem, ScoreComponent
+from .metrics import PerformanceMetrics, MetricsTracker, BenchmarkResult
+from .baselines import BaselineGenerator, BaselineType, BaselineConfig
 from .runner import BenchmarkRunner, BenchmarkConfig
-from .reporting import ReportGenerator, ReportFormat
+from .reporting import ReportGenerator, ReportFormat, ReportSection, ChartType
 
 __all__ = [
+    # Problems
     "BenchmarkProblem",
     "ProblemSet",
+    "ProblemDomain",
+    "ComplexityLevel",
     "get_all_problem_sets",
+    "get_all_problems",
+    "get_problems_by_domain",
+    "get_problems_by_complexity",
+    "get_benchmark_statistics",
+    # Scoring
     "Score",
     "ScoringSystem",
+    "ScoreComponent",
+    # Metrics
     "PerformanceMetrics",
     "MetricsTracker",
+    "BenchmarkResult",
+    # Baselines
     "BaselineGenerator",
     "BaselineType",
+    "BaselineConfig",
+    # Runner
     "BenchmarkRunner",
     "BenchmarkConfig",
+    # Reporting
     "ReportGenerator",
     "ReportFormat",
+    "ReportSection",
+    "ChartType",
 ]
